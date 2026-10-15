@@ -21,7 +21,8 @@ Enter 发送，Shift+Enter 换行。流程卡片可拖入、重排或移除，�
 | --- | --- |
 | GPT / Codex、Claude Code | 通过各自官方 CLI 与授权入口；需要本机可用的执行文件、账号和模型权限。 |
 | DeepSeek Harness | 使用已支持的 headless/连接器入口；保留具体提供方路由和模型标识。 |
-| WorkBuddy、CodeBuddy | 依赖可识别的官方执行组件和对应授权；桌面版或 IDE 登录不等于独立 CLI 已可用。CodeBuddy 登录地区由用户选择。 |
+| WorkBuddy、CodeBuddy | 优先关联 WorkBuddy 原有桌面授权，直接检查 CodeBuddy 官方 CLI 的已有会话；仅在确需授权时登录。缺少执行组件时显示待接入，CodeBuddy 登录地区由用户选择。 |
+| Google Antigravity / Gemini | 识别桌面应用和官方 CLI；Antigravity 确认官方账号、目录及只读能力后启用；Gemini 复用已有官方配置，安全验证默认模型后启用。Google CLI 交互登录在系统终端完成，未验证的桌面登录保持待接入。 |
 | OpenCode 及自动发现的应用 | 只有经过验证的执行适配器才能自动运行。仅发现应用或目录时保持待接入。 |
 | 豆包、马维斯等 GUI 应用 | 可显示安装信息并打开原应用；缺少可靠任务执行及结果接口时不能加入自动执行。 |
 | 自定义 API | 支持 OpenAI Chat Completions、Responses 和 Anthropic Messages 兼容协议；由用户配置服务与模型。 |

@@ -720,3 +720,37 @@ test('CodeBuddy stream-json uses strict terminal results, usage, actual model an
   const failed=f.events([{type:'result',subtype:'error_during_execution',is_error:true,errors:['AUTH_REQUIRED']}],{id:'codebuddy'});
   await assert.rejects(runProvider({provider:failed,prompt:'x',workspace:f.directory,nodePath:process.execPath}),/AUTH_REQUIRED/);
 });
+
+test('Google Gemini adapter records public streaming text, exact model, usage and strict completion',async t=>{
+  const f=fixture(t),directory=path.join(f.directory,'gemini-package');fs.mkdirSync(directory);
+  const executable=path.join(directory,'index.js');fs.writeFileSync(path.join(directory,'package.json'),JSON.stringify({name:'@google/gemini-cli',version:'1.0.0',bin:{gemini:'index.js'}}));
+  fs.writeFileSync(executable,`process.stdin.resume();process.stdin.on('end',()=>{for(const row of ${JSON.stringify([
+    {type:'init',session_id:'google-session',model:'gemini-model'},
+    {type:'message',role:'assistant',content:'Hello ',delta:true},
+    {type:'message',role:'assistant',content:'world',delta:true},
+    {type:'result',status:'success',stats:{input_tokens:11,output_tokens:2,cached:4}}
+  ])})console.log(JSON.stringify(row));});`);
+  const provider={id:'gemini',mode:'cli',ready:true,executable,models:[{id:'default',ready:true,efforts:['default']}],capabilities:{readOnly:true}};
+  const events=[];const result=await runProvider({provider,stage:{role:'acceptance'},prompt:'test',workspace:f.directory,onEvent:e=>events.push(e)});
+  assert.equal(result.text,'Hello world');assert.equal(result.sessionId,'google-session');assert.equal(result.modelId,'gemini-model');assert.equal(result.usage.input,11);assert.equal(result.usage.cacheRead,4);
+  assert.equal(events.filter(e=>e.type==='message').at(-1).text,'Hello world');
+  const invocation=buildInvocation({provider,stage:{role:'acceptance'},prompt:'never shell $(echo x)',workspace:f.directory});
+  assert.equal(invocation.args[invocation.args.indexOf('--approval-mode')+1],'plan');assert.equal(invocation.stdin,'never shell $(echo x)');assert.equal(invocation.shell,false);
+  fs.writeFileSync(executable,`process.stdin.resume();process.stdin.on('end',()=>console.log(JSON.stringify({type:'result',status:'error',error:{message:'denied'}})));`);
+  await assert.rejects(runProvider({provider,prompt:'test',workspace:f.directory}),/denied/);
+  await assert.rejects(probeProvider({provider}),/没有已验证/);
+});
+
+test('Gemini existing configuration can be verified in an isolated tool-disabled workspace and enables only observed models',async t=>{
+  const f=fixture(t),directory=path.join(f.directory,'gemini-probe-package');fs.mkdirSync(directory);
+  const executable=path.join(directory,'index.js'),capture=path.join(f.directory,'probe-cwd.txt');
+  fs.writeFileSync(path.join(directory,'package.json'),JSON.stringify({name:'@google/gemini-cli',version:'0.64.0',bin:{gemini:'index.js'}}));
+  fs.writeFileSync(executable,`const fs=require('node:fs');let prompt='';process.stdin.on('data',x=>prompt+=x);process.stdin.on('end',()=>{fs.writeFileSync(${JSON.stringify(capture)},process.cwd());const settings=JSON.parse(fs.readFileSync('.gemini/settings.json'));if(prompt!=='Reply exactly OK. Do not use any tools.'||settings.hooksConfig.enabled!==false||settings.admin.mcp.enabled!==false||!process.argv.includes('--admin-policy'))process.exit(2);console.log(JSON.stringify({type:'init',session_id:'verified-google',model:'gemini-observed'}));console.log(JSON.stringify({type:'message',role:'assistant',content:'OK',delta:true}));console.log(JSON.stringify({type:'result',status:'success',stats:{input_tokens:2,output_tokens:1}}));});`);
+  const provider={id:'gemini',mode:'cli',ready:false,version:'0.64.0',executable,authStatus:'configured',models:[{id:'default',ready:false,efforts:['default']}],capabilities:{readOnly:true,probe:true}};
+  const result=await probeProvider({provider});assert.equal(result.text,'OK');assert.equal(result.modelId,'gemini-observed');assert.equal(result.verifiedModelId,'default');
+  const probeWorkspace=fs.readFileSync(capture,'utf8');assert.notEqual(probeWorkspace,f.directory);assert.equal(fs.existsSync(probeWorkspace),false);
+  const next=applyProviderVerification(provider,{executable,at:Date.now(),modelId:'default',actualModelId:result.modelId,providerVersion:provider.version});
+  assert.equal(applyProviderVerification({...provider,version:'0.65.0'},{executable,at:Date.now(),modelId:'default',providerVersion:'0.64.0'}).ready,false);
+  assert.equal(next.ready,true);assert.deepEqual(next.models.map(m=>[m.id,m.ready]),[['default',true],['gemini-observed',true]]);
+  assert.throws(()=>buildInvocation({provider:next,stage:{model:'invented-model'},prompt:'x',workspace:f.directory}),/所选模型/);
+});

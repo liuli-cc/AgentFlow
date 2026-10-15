@@ -79,6 +79,19 @@ test('both login regions reject a stale WorkBuddy product and inherited opposite
   }
 });
 
+test('Windows worker-style Path and user directory casing preserve the existing official auth context',()=>{
+ const config=path.join(os.tmpdir(),'agentflow-config-fixture');
+ const result=codeBuddyEnvironment({Path:'C:\\Windows\\System32;C:\\Node',Home:'C:\\Users\\Fixture',
+  UserProfile:'C:\\Users\\Fixture',AppData:'C:\\Users\\Fixture\\AppData\\Roaming',LocalAppData:'C:\\Users\\Fixture\\AppData\\Local',
+  systemroot:'C:\\Windows',comspec:'C:\\Windows\\System32\\cmd.exe',codebuddy_config_dir:config,
+  CodeBuddy_Auth_Token:'SYNTHETIC_SECRET',Node_Options:'--require injected'}, {platform:'win32'});
+ assert.equal(result.PATH,'C:\\Windows\\System32;C:\\Node');assert.equal(result.HOME,'C:\\Users\\Fixture');
+ assert.equal(result.USERPROFILE,'C:\\Users\\Fixture');assert.equal(result.APPDATA,'C:\\Users\\Fixture\\AppData\\Roaming');
+ assert.equal(result.LOCALAPPDATA,'C:\\Users\\Fixture\\AppData\\Local');assert.equal(result.SystemRoot,'C:\\Windows');
+ assert.equal(result.ComSpec,'C:\\Windows\\System32\\cmd.exe');assert.equal(result.CODEBUDDY_CONFIG_DIR,config);
+ assert.doesNotMatch(JSON.stringify(result),/SYNTHETIC_SECRET|injected/);
+});
+
 test('inspection only initializes and returns fixed public auth methods without identity or token',async t=>{
   const f=await fixture(t);const result=await inspectCodeBuddyAuth(f);
   assert.deepEqual(result,{protocolVersion:1,packageVersion:'2.167.0',authMethods:[{id:'internal',name:'国内账号 · 微信'},{id:'external',name:'国际账号 · Google / GitHub'}]});
@@ -108,6 +121,22 @@ test('catalog reads only an empty non-persistent session and exposes public mode
   const lines=(await fs.readFile(f.log,'utf8')).trim().split('\n').map(JSON.parse);
   assert.deepEqual(lines.map(x=>x.method),['initialize','session/new']);
   assert.deepEqual(lines[1].params,{cwd:f.cwd,mcpServers:[]});
+});
+
+test('public catalog labels survive UTF-8 characters split across ACP transport chunks',async t=>{
+ const f=await fixture(t),{EventEmitter}=require('node:events'),{PassThrough}=require('node:stream');
+ const child=new EventEmitter();Object.assign(child,{pid:1234568,exitCode:null,signalCode:null,stdin:new PassThrough(),stdout:new PassThrough()});
+ child.stdin.on('data',data=>{
+  const request=JSON.parse(String(data));
+  if(request.method==='initialize')return process.nextTick(()=>child.stdout.write(JSON.stringify({id:1,result:{protocolVersion:1,authMethods:[]}})+'\n'));
+  if(request.method==='session/new'){
+   const bytes=Buffer.from(JSON.stringify({id:3,result:{models:{currentModelId:'model-id',availableModels:[{modelId:'model-id',name:'中文模型'}]}}})+'\n');
+   const split=bytes.indexOf(Buffer.from('中文'))+1;
+   child.stdout.write(bytes.subarray(0,split));setTimeout(()=>child.stdout.write(bytes.subarray(split)),10);
+  }
+ });
+ const result=await inspectCodeBuddyCatalog({...f,spawnImpl:()=>child,killImpl:(pid,signal)=>{child.signalCode=signal;child.emit('exit',null,signal);child.emit('close',null,signal);}});
+ assert.equal(result.authenticated,true);assert.equal(result.models[0].label,'中文模型');assert.doesNotMatch(JSON.stringify(result),/\ufffd/);
 });
 
 test('only exact ACP auth-required category becomes a safe unauthenticated state',async t=>{

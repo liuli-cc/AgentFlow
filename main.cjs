@@ -13,6 +13,7 @@ const {ApiRegistry}=require('./lib/api-providers.cjs');
 const {discoverApplications,DiscoveryWatcher}=require('./lib/discovery.cjs');
 const {describeAuth,createAuthInvocation}=require('./lib/auth.cjs');
 const {authenticateCodeBuddy}=require('./lib/codebuddy-auth.cjs');
+const {launchInteractiveAuth}=require('./lib/interactive-auth.cjs');
 const {ConversationStore}=require('./lib/conversations.cjs');
 const {readOfficialConversation}=require('./lib/session-conversations.cjs');
 const {resolveCLIInvocation,terminateProcessTree,findCLI}=require('./lib/runtime.cjs');
@@ -49,10 +50,10 @@ async function detectProviders(){
   // Several official CLIs expose status through synchronous commands. Keep those
   // commands off Electron's UI thread so opening/activating the window stays fast.
   const known=await new Promise((resolve,reject)=>{
-    const worker=new Worker(`const {parentPort,workerData}=require('node:worker_threads');(async()=>{const p=require(workerData.modulePath);const known=await p.detectProviders(workerData.options);const i=known.findIndex(x=>x.id==='codebuddy');if(i>=0&&p.enrichCodeBuddyProvider)known[i]=await p.enrichCodeBuddyProvider(known[i],{nodePath:workerData.options.nodePath,refresh:workerData.refresh});parentPort.postMessage({known});})().catch(()=>parentPort.postMessage({failed:true}));`,
-      {eval:true,workerData:{modulePath:path.join(__dirname,'lib/providers.cjs'),options:{nodePath:nodePath(),codebuddyCLIPath},refresh:authenticationProcesses.has('codebuddy')}});
+    const worker=new Worker(`const {parentPort,workerData}=require('node:worker_threads');(async()=>{const p=require(workerData.modulePath);const d=require(workerData.discoveryPath);const applications=d.discoverApplications();const known=await p.detectProviders({...workerData.options,discoveredProviders:applications});const i=known.findIndex(x=>x.id==='codebuddy');if(i>=0&&p.enrichCodeBuddyProvider)known[i]=await p.enrichCodeBuddyProvider(known[i],{nodePath:workerData.options.nodePath,refresh:workerData.refresh});parentPort.postMessage({known});})().catch(()=>parentPort.postMessage({failed:true}));`,
+      {eval:true,workerData:{modulePath:path.join(__dirname,'lib/providers.cjs'),discoveryPath:path.join(__dirname,'lib/discovery.cjs'),options:{nodePath:nodePath(),codebuddyCLIPath},refresh:authenticationProcesses.has('codebuddy')}});
     let settled=false;const finish=(error,value)=>{if(settled)return;settled=true;clearTimeout(timer);void worker.terminate();error?reject(error):resolve(value);};
-    const timer=setTimeout(()=>finish(new Error('本机智能体检测超时，请重新检测')),60000);timer.unref?.();
+    const timer=setTimeout(()=>finish(new Error('本机智能体检测超时，请重新检测')),90000);timer.unref?.();
     worker.once('message',result=>Array.isArray(result?.known)?finish(null,result.known):finish(new Error('本机智能体检测暂不可用')));
     worker.once('error',()=>finish(new Error('本机智能体检测暂不可用')));worker.once('exit',code=>{if(!settled)finish(new Error('本机智能体检测已停止'));});
   });
@@ -60,7 +61,7 @@ async function detectProviders(){
     const verified=verifiedProviders.get(provider.id);
     return providersModule.applyProviderVerification?providersModule.applyProviderVerification(provider,verified):provider;
   });
-  return [...local,...discoverApplications({knownProviders:local}),...(apiRegistry?.getProviders()??[])].map(provider=>{
+  return [...local,...(apiRegistry?.getProviders()??[])].map(provider=>{
     const auth=describeAuth(provider,{platform:process.platform});
     if(authenticationProcesses.has(provider.id))auth.state='pending';
     else if(auth.executionReady)authenticationMessages.delete(provider.id);
@@ -128,6 +129,13 @@ async function authenticateProvider(id,methodId){
   }
   const invocation=createAuthInvocation(provider,{nodePath:nodePath(),platform:process.platform});
   authenticationMessages.delete(id);
+  if(invocation.requiresTerminal){
+    const terminal=launchInteractiveAuth({invocation,nodePath:nodePath(),home:os.homedir(),platform:process.platform});
+    const entry={finished:false,cancelled:false,cancel:()=>terminal.cancel()};authenticationProcesses.set(id,entry);
+    terminal.completion.then(result=>{if(!entry.cancelled&&result.code!==0)authenticationMessages.set(id,result.timedOut?'登录已超时，请重试':'官方登录尚未完成，请在终端中完成登录');},()=>{if(!entry.cancelled)authenticationMessages.set(id,'系统登录终端未能正常启动');})
+      .finally(async()=>{entry.finished=true;if(authenticationProcesses.get(id)===entry)authenticationProcesses.delete(id);await terminal.cleanup();await engine.refreshProviders().catch(()=>{});});
+    void engine.refreshProviders().catch(()=>{});return {started:true,kind:'terminal-cli'};
+  }
   const resolved=resolveCLIInvocation({executable:invocation.command,args:invocation.args,nodePath:nodePath(),env:invocation.env,platform:process.platform});
   const child=spawn(resolved.command,resolved.args,{shell:false,detached:process.platform!=='win32',windowsHide:true,stdio:'ignore',env:resolved.env});
   const entry={child,timer:null,finished:false};authenticationProcesses.set(id,entry);
@@ -207,7 +215,7 @@ function registerIPC(){
   handle('authenticateProvider',authenticateProvider);
   handle('cancelAuthentication',async id=>{
     providerById(id);const entry=authenticationProcesses.get(id);if(!entry)return {cancelled:false};
-    entry.finished=true;entry.cancelled=true;authenticationProcesses.delete(id);clearTimeout(entry.timer);entry.controller?.abort();
+    entry.finished=true;entry.cancelled=true;authenticationProcesses.delete(id);clearTimeout(entry.timer);entry.controller?.abort();void entry.cancel?.();
     if(entry.child?.pid)void terminateProcessTree(entry.child,{force:process.platform==='win32'});
     authenticationMessages.set(id,'登录已取消');await engine.refreshProviders();return {cancelled:true};
   });
@@ -228,7 +236,7 @@ function registerIPC(){
     if(typeof providersModule.probeProvider!=='function')throw new Error('当前版本尚未提供此入口的登录验证');
     let result;
     try{result=await providersModule.probeProvider({provider,nodePath:nodePath()});}catch(error){verifiedProviders.delete(provider.id);await engine.refreshProviders();throw error;}
-    verifiedProviders.set(provider.id,{executable:provider.executable,at:Date.now(),modelId:result.verifiedModelId});
+    verifiedProviders.set(provider.id,{executable:provider.executable,at:Date.now(),modelId:result.verifiedModelId,actualModelId:result.modelId,providerVersion:provider.version});
     await engine.refreshProviders();return {ok:true,usage:result.usage,
       modelId:redact(result.modelId||result.verifiedRequestModelId||result.verifiedModelId||'').slice(0,240),
       effort:result.verifiedEffort||'default'};
@@ -296,7 +304,7 @@ app.whenReady().then(async()=>{
 app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit();});
 app.on('before-quit',event=>{
   if(quitting)return;quitting=true;telemetry?.stop();discoveryWatcher?.stop();
-  for(const {child,timer,controller} of authenticationProcesses.values()){clearTimeout(timer);controller?.abort();if(child?.pid)void terminateProcessTree(child,{force:true});}
+  for(const {child,timer,controller,cancel} of authenticationProcesses.values()){clearTimeout(timer);controller?.abort();void cancel?.();if(child?.pid)void terminateProcessTree(child,{force:true});}
   if(engine?.controllers.size){event.preventDefault();engine.shutdown();setTimeout(()=>app.exit(0),1800);}else engine?.shutdown();
 });
 module.exports={markdownReport};
