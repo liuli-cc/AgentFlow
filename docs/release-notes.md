@@ -1,4 +1,4 @@
-# AgentFlow 0.4.4 · Build 11
+# AgentFlow 0.4.5 · Build 12
 
 中文多智能体桌面工作台：输入需求，由启动模型推荐团队；你确认后执行，模型验收后再由你最终接受。每环节可选择已就绪的模型及其支持的思考强度，查看实际对话、尝试记录与用量。
 
@@ -7,6 +7,7 @@
 - 扩展首次及自动扫描：非默认安装目录、嵌套目录、改名的 macOS 应用、常见 Node 版本管理器和 Windows 用户安装位置。下载目录发现的应用仅展示，未经安装信任不会自动执行其中的程序。
 - 补充 Google Antigravity 桌面应用、`agy` 官方 CLI 和 Gemini CLI 的识别；IDE 启动器与可执行任务入口分别处理。
 - WorkBuddy 不再依赖固定 Mac 路径，执行时由原厂连接器刷新已有授权；CodeBuddy 直接检查已有官方会话和模型目录，修复 Windows 环境变量和中文分包问题。
+- Google 官方 CLI 登录后即使继续留在终端，也能验证已有配置；登录配置变化会触发自动检测。
 - 连接页区分已就绪、已有账号待验证、需登录、待接入。已有会话优先复用，重新登录保留在详情中。
 
 Antigravity 桌面登录与独立 `agy` 登录由 Google 自行管理。只有官方 CLI 明确确认账号、模型目录和只读能力时才启用自动执行；未确认时保留待验证。Gemini CLI 可复用其原有 OAuth、API 或 Vertex 配置；本版已核对安全策略的 Gemini CLI 0.64.x 稳定版可验证默认模型后启用执行，并记录响应中的实际模型。连接探针会禁用工具、钩子、扩展、MCP 和技能；存在系统管理策略时保留待验证，不覆盖企业策略。此版本未在开发机实际调用 Google 账号。
@@ -15,9 +16,9 @@ Antigravity 桌面登录与独立 `agy` 登录由 Google 自行管理。只有�
 
 | 电脑 | 安装包 | 便携/压缩包 |
 | --- | --- | --- |
-| Apple 芯片 Mac | `AgentFlow-0.4.4-macOS-arm64.dmg` | `AgentFlow-0.4.4-macOS-arm64.zip` |
-| Intel Mac | `AgentFlow-0.4.4-macOS-x64.dmg` | `AgentFlow-0.4.4-macOS-x64.zip` |
-| Windows x64 | `AgentFlow-0.4.4-Windows-x64-Setup.exe` | `AgentFlow-0.4.4-Windows-x64.zip` |
+| Apple 芯片 Mac | `AgentFlow-0.4.5-macOS-arm64.dmg` | `AgentFlow-0.4.5-macOS-arm64.zip` |
+| Intel Mac | `AgentFlow-0.4.5-macOS-x64.dmg` | `AgentFlow-0.4.5-macOS-x64.zip` |
+| Windows x64 | `AgentFlow-0.4.5-Windows-x64-Setup.exe` | `AgentFlow-0.4.5-Windows-x64.zip` |
 
 macOS 将 `AgentFlow.app` 放入“应用程序”。Windows 运行安装程序，或解压 ZIP 后打开 `AgentFlow.exe`，不要单独移动 EXE。`SHA256SUMS.txt` 可校验下载文件；源码压缩包不能直接当桌面应用运行。
 

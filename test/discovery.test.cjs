@@ -152,3 +152,11 @@ test('Downloads子根和目录链接按原扫描位置标记，不靠canonical�
   const installed=discoverApplications({...options,roots:[external]});
   assert.equal(installed[0].executionTrust,'installed-location');
 });
+
+test('Gemini official login configuration changes trigger a rescan without exposing credential content',t=>{
+  const home=fixture(t),root=path.join(home,'.gemini');fs.mkdirSync(root);
+  const options={home,roots:[],cliRoots:[],platform:process.platform,env:{}};
+  const initial=discoveryFingerprint(options);fs.writeFileSync(path.join(root,'settings.json'),'{"security":{"auth":{"selectedType":"oauth-personal"}}}');
+  const configured=discoveryFingerprint(options);assert.notEqual(configured,initial);
+  fs.writeFileSync(path.join(root,'oauth_creds.json'),'SYNTHETIC_PRIVATE_AUTH');const loggedIn=discoveryFingerprint(options);assert.notEqual(loggedIn,configured);assert(!loggedIn.includes('SYNTHETIC_PRIVATE_AUTH'));
+});

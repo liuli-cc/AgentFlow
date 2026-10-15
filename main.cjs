@@ -11,7 +11,7 @@ const providersModule=require('./lib/providers.cjs');
 const {Telemetry}=require('./lib/telemetry.cjs');
 const {ApiRegistry}=require('./lib/api-providers.cjs');
 const {discoverApplications,DiscoveryWatcher}=require('./lib/discovery.cjs');
-const {describeAuth,createAuthInvocation}=require('./lib/auth.cjs');
+const {describeAuth,createAuthInvocation,applyAuthSession}=require('./lib/auth.cjs');
 const {authenticateCodeBuddy}=require('./lib/codebuddy-auth.cjs');
 const {launchInteractiveAuth}=require('./lib/interactive-auth.cjs');
 const {ConversationStore}=require('./lib/conversations.cjs');
@@ -62,9 +62,10 @@ async function detectProviders(){
     return providersModule.applyProviderVerification?providersModule.applyProviderVerification(provider,verified):provider;
   });
   return [...local,...(apiRegistry?.getProviders()??[])].map(provider=>{
-    const auth=describeAuth(provider,{platform:process.platform});
-    if(authenticationProcesses.has(provider.id))auth.state='pending';
-    else if(auth.executionReady)authenticationMessages.delete(provider.id);
+    const session=authenticationProcesses.get(provider.id);
+    const auth=applyAuthSession(provider,describeAuth(provider,{platform:process.platform}),session);
+    if(session?.interactive&&provider.authStatus==='configured')session.authorized=true;
+    if(auth.executionReady||provider.authStatus==='configured')authenticationMessages.delete(provider.id);
     const message=authenticationMessages.get(provider.id);
     return {...provider,auth,...(message?{message}: {})};
   });
@@ -131,8 +132,8 @@ async function authenticateProvider(id,methodId){
   authenticationMessages.delete(id);
   if(invocation.requiresTerminal){
     const terminal=launchInteractiveAuth({invocation,nodePath:nodePath(),home:os.homedir(),platform:process.platform});
-    const entry={finished:false,cancelled:false,cancel:()=>terminal.cancel()};authenticationProcesses.set(id,entry);
-    terminal.completion.then(result=>{if(!entry.cancelled&&result.code!==0)authenticationMessages.set(id,result.timedOut?'登录已超时，请重试':'官方登录尚未完成，请在终端中完成登录');},()=>{if(!entry.cancelled)authenticationMessages.set(id,'系统登录终端未能正常启动');})
+    const entry={finished:false,cancelled:false,interactive:true,cancel:()=>terminal.cancel()};authenticationProcesses.set(id,entry);
+    terminal.completion.then(result=>{if(!entry.cancelled&&!entry.authorized&&result.code!==0)authenticationMessages.set(id,result.timedOut?'登录已超时，请重试':'官方登录尚未完成，请在终端中完成登录');},()=>{if(!entry.cancelled)authenticationMessages.set(id,'系统登录终端未能正常启动');})
       .finally(async()=>{entry.finished=true;if(authenticationProcesses.get(id)===entry)authenticationProcesses.delete(id);await terminal.cleanup();await engine.refreshProviders().catch(()=>{});});
     void engine.refreshProviders().catch(()=>{});return {started:true,kind:'terminal-cli'};
   }

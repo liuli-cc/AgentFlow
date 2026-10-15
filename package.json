@@ -1,7 +1,7 @@
 {
   "name": "agentflow-desktop",
   "productName": "AgentFlow",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "本地多智能体工作台，TokenLens 风格的可审计任务编排",
   "main": "main.cjs",
   "license": "MIT",
@@ -21,6 +21,6 @@
     "electron": "44.7.2",
     "electron-winstaller": "5.4.4"
   },
-  "buildNumber": 11,
+  "buildNumber": 12,
   "author": "AgentFlow contributors"
 }

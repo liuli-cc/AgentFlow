@@ -38,3 +38,13 @@ test('newly discovered installed applications get only a desktop action and publ
   const result=describeAuth(provider,{platform:'darwin'});assert.equal(result.kind,'desktop');assert.equal(result.executionReady,false);
   assert(!JSON.stringify(result).includes('private'));assert(!JSON.stringify(result).includes('never-return'));assert.equal(Object.hasOwn(result,'env'),false);
 });
+
+test('interactive Google login unlocks connection verification after existing configuration is detected',()=>{
+  const {applyAuthSession}=require('../lib/auth.cjs');
+  const auth={kind:'browser-cli',state:'unverified',canStart:true};
+  assert.equal(applyAuthSession({authStatus:'required'},auth,{interactive:true}).state,'pending');
+  assert.equal(applyAuthSession({authStatus:'configured'},auth,{interactive:true}).state,'unverified');
+  assert.equal(applyAuthSession({authStatus:'configured'},auth,{interactive:false}).state,'pending');
+  assert.equal(applyAuthSession({authStatus:'configured'},auth,{interactive:false,finished:true}),auth);
+  assert.equal(auth.state,'unverified');
+});
