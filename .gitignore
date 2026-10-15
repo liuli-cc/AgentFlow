@@ -1,0 +1,48 @@
+# Dependencies and generated artifacts
+node_modules/
+release/
+dist/
+build/
+coverage/
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local development and runtime data; never commit real chats or accounts
+/work/
+/tmp/
+/temp/
+/agentflow-data/
+/local-data/
+/user-data/
+/.agentflow/
+/.private/
+/runtimes/
+/runs/
+/conversations/
+/sessions/
+/workspaces/
+/config.json
+/api-providers.json
+.api-*.tmp
+.delete-*/
+*.local.json
+
+# Credentials and signing materials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+
+# Crash dumps and local editor state
+*.dmp
+.idea/
+.vscode/

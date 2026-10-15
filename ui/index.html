@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+  <meta name="color-scheme" content="dark">
+  <title>AgentFlow · 智能体工作台</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="usage-charts.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell" id="app">
+    <aside class="sidebar" aria-label="主导航">
+      <a class="brand" href="#workbench" aria-label="AgentFlow 工作台">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="brand-word">AgentFlow</span>
+      </a>
+      <button class="sidebar-new-task quiet-button" id="new-task" type="button" aria-label="新任务" title="新任务"></button>
+      <div id="conversation-list" class="conversations" aria-label="过往聊天"></div>
+      <div class="sidebar-bottom">
+        <nav id="navigation" class="navigation"></nav>
+        <div class="sidebar-version" id="app-version">AgentFlow</div>
+      </div>
+    </aside>
+    <section class="main-shell">
+      <header class="titlebar">
+        <div class="titlebar-left"><button class="icon-button sidebar-toggle" id="sidebar-toggle" aria-label="展开或收起导航"></button><span id="page-crumb">新任务</span></div>
+        <div id="island" class="status-island" role="status" aria-live="polite"><span class="island-orb"></span><span id="island-label">正在连接本机服务</span></div>
+        <span id="task-count" class="task-count"></span>
+      </header>
+      <div class="workspace-layout">
+        <main id="main-content" tabindex="-1"></main>
+        <aside class="inspector" id="inspector" aria-label="任务活动与真实用量"></aside>
+      </div>
+    </section>
+  </div>
+  <div id="toasts" class="toast-stack" role="status" aria-live="polite"></div>
+  <div id="drag-status" class="sr-only" role="status" aria-live="polite"></div>
+  <dialog id="confirm-dialog" class="confirm-dialog"><form method="dialog"><span class="dialog-symbol" id="dialog-symbol"></span><h2 id="dialog-title"></h2><p id="dialog-message"></p><div class="dialog-actions"><button value="cancel" class="quiet-button">返回</button><button value="confirm" class="primary-button" id="dialog-confirm">确认</button></div></form></dialog>
+</body>
+</html>
