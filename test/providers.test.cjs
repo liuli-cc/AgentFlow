@@ -390,7 +390,7 @@ test('DSH external routing loads the existing connector only in an owned home, p
   assert.equal(details.credentialsCopied, false);
   assert.equal(fs.realpathSync(details.sessions), fs.realpathSync(path.join(dshHome, 'sessions')));
   assert(details.wrapper.includes('registerHooks'));
-  assert(details.wrapper.includes(connectorEntry));
+  assert(details.wrapper.includes(require('node:url').pathToFileURL(connectorEntry).href));
   assert(details.wrapper.includes('await ctx.llm.listModels("workbuddy-ai")'));
   assert(details.wrapper.includes('model.id==="hy3"'));
   assert.equal(fs.existsSync(details.home), false);

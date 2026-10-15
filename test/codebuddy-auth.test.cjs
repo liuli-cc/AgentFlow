@@ -169,3 +169,11 @@ test('a closed child never receives delayed SIGKILL for a potentially reused pid
   }});
   await new Promise(resolve=>setTimeout(resolve,600));assert.deepEqual(kills,['SIGTERM']);
 });
+
+test('successful ACP metadata waits for the owned process close before returning its temporary workspace',async t=>{
+  const f=await fixture(t),{spawn}=require('node:child_process');let closed=false;
+  await inspectCodeBuddyAuth({...f,spawnImpl:(command,args,options)=>{
+    const child=spawn(command,args,options);child.once('close',()=>{closed=true;});return child;
+  }});
+  assert.equal(closed,true,'caller cleanup must only run after process handles release the cwd');
+});

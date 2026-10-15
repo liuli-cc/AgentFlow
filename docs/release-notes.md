@@ -1,4 +1,4 @@
-# AgentFlow 0.4.2 · Build 9
+# AgentFlow 0.4.3 · Build 10
 
 中文多智能体桌面工作台：输入需求，由启动模型推荐团队；你确认后执行，模型验收后再由你最终接受。每环节可选择已就绪的模型及其支持的思考强度，查看实际对话、尝试记录与用量。
 
@@ -6,9 +6,9 @@
 
 | 电脑 | 安装包 | 便携/压缩包 |
 | --- | --- | --- |
-| Apple 芯片 Mac | `AgentFlow-0.4.2-macOS-arm64.dmg` | `AgentFlow-0.4.2-macOS-arm64.zip` |
-| Intel Mac | `AgentFlow-0.4.2-macOS-x64.dmg` | `AgentFlow-0.4.2-macOS-x64.zip` |
-| Windows x64 | `AgentFlow-0.4.2-Windows-x64-Setup.exe` | `AgentFlow-0.4.2-Windows-x64.zip` |
+| Apple 芯片 Mac | `AgentFlow-0.4.3-macOS-arm64.dmg` | `AgentFlow-0.4.3-macOS-arm64.zip` |
+| Intel Mac | `AgentFlow-0.4.3-macOS-x64.dmg` | `AgentFlow-0.4.3-macOS-x64.zip` |
+| Windows x64 | `AgentFlow-0.4.3-Windows-x64-Setup.exe` | `AgentFlow-0.4.3-Windows-x64.zip` |
 
 macOS 将 `AgentFlow.app` 放入“应用程序”。Windows 运行安装程序，或解压 ZIP 后打开 `AgentFlow.exe`，不要单独移动 EXE。`SHA256SUMS.txt` 可校验下载文件；源码压缩包不能直接当桌面应用运行。
 
