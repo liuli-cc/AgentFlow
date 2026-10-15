@@ -2,6 +2,7 @@
 const test=require('node:test');const assert=require('node:assert/strict');
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
 const {execFileSync}=require('node:child_process');
+const {pathToFileURL}=require('node:url');
 const {prepareVendorInvocation,redactVendorText,resolveWorkBuddyBridge}=require('../lib/vendor-auth.cjs');
 function fixture(t){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'agentflow-vendor-auth-test-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return dir;}
 function values(t,{platform=process.platform==='win32'?'win32':'darwin',region='global',refreshFailure=false}={}){
@@ -42,7 +43,7 @@ test('vendor bridge reuses and refreshes only the private connector credential w
  assert(script.includes('CODEBUDDY_CREDENTIALS_IN_MEMORY'));
  assert(script.includes("childEnv.CODEBUDDY_DISABLE_PRODUCT_CACHE='1'"));
  assert(script.includes('sdk.regionOf(credential.domain)'));
- assert.equal(fs.statSync(invocation.args[1]).mode&0o777,0o600);
+ if(process.platform!=='win32')assert.equal(fs.statSync(invocation.args[1]).mode&0o777,0o600);
  // Execute only synthetic fixtures. No installed app, account, model or network.
  const output=execFileSync(process.execPath,invocation.args,{cwd:invocation.cwd,env:invocation.env,encoding:'utf8',timeout:15000,stdio:['ignore','pipe','pipe']});
  const result=JSON.parse(output);assert.equal(result.fresh,true);assert.equal(result.input,4089);assert.equal(result.output,111);assert.equal(result.debugAccess,'[redacted]');
@@ -103,7 +104,7 @@ test('vendor endpoint guard blocks authorization to another host, cleartext, or 
  const http=require('node:http');for(const method of ['setHeader','appendHeader','write','end','flushHeaders']){const fake=Object.create(http.ClientRequest.prototype);fake.getHeaders=()=>headers;try{fake[method](...(method==='setHeader'||method==='appendHeader'?['Authorization',headers.Authorization]:[]));}catch(e){if(e.message==='WorkBuddy authorization endpoint rejected.')blocked++;}}
  const valid=https.request('https://www.workbuddy.ai',{headers});valid.on('error',()=>{});valid.destroy();
  console.log(JSON.stringify({blocked}));`;
- const output=execFileSync(process.execPath,['--import',guard,'-e',source],{env:{...process.env,CODEBUDDY_AUTH_TOKEN:'SYNTHETIC_GUARD_TOKEN'},encoding:'utf8',timeout:5000,stdio:['ignore','pipe','pipe']});
+ const output=execFileSync(process.execPath,['--import',pathToFileURL(guard).href,'-e',source],{env:{...process.env,CODEBUDDY_AUTH_TOKEN:'SYNTHETIC_GUARD_TOKEN'},encoding:'utf8',timeout:5000,stdio:['ignore','pipe','pipe']});
  assert.deepEqual(JSON.parse(output.trim()),{blocked:10});assert(!output.includes('SYNTHETIC_GUARD_TOKEN'));
 });
 
